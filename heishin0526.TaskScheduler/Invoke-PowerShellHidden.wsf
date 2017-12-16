@@ -35,7 +35,7 @@
                 name       = "arguments"
                 helpstring = "Use as arguments of PowerShell.exe. Enclose it in double quotes."
             />
-            <example>Example: PowerShellHidden.wsf "-Command {Get-EventLog -LogName security}"</example>
+            <example>Example: Invoke-PowerShellHidden.wsf "-Command {Get-EventLog -LogName security}"</example>
         </runtime>
         <script language="VBScript">
         <![CDATA[

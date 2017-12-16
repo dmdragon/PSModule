@@ -1,22 +1,19 @@
-﻿# OpenVPNの設定ファイルのFileInfoオブジェクトを取得する関数
+# Retrieve the FileInfo object of the OpenVPN configuration file.
 function Get-OpenVPNConfig
 {
     <#
         .SYMOPSIS
-            OpenVPNの設定ファイルのFileInfoオブジェクトを取得します。
+            Gets the FileInfo object for the OpenVPN configuration file.
 
         .DESCRIPTION
-            関数 Get-OpenVPNConfig は、OpenVPNの設定ファイルのファイルオブジェクトを取得します。
+            The Get-OpenVPNCnfig function retrieves the file object of the OpenVPN configuration file.
 
-            OpenVPNの設定ファイルは、%USERPROFILE%\OpenVPN\config か、レジストリで指定されたパスに格納されています。また、
-            設定ファイルの拡張子も、レジストリで指定されています。それらからファイルのオブジェクトを取得します。
+            The OpenVPN configuration file is either%userprofile%\openvpn\config or stored in the path specified in the registry. Also, the extension of the configuration file is specified in the registry. Get the file object from them.
 
-            パラメーター $File で設定ファイル名を指定した場合は、そのファイル名のファイルオブジェクトを取得します。
-
-            設定ファイル名を指定しない場合は、拡張子 ovpn のファイルのオブジェクトを取得します。
+            If you specify a configuration file name in the parameter $File, retrieve the file object for that file name.
 
         .PARAMETER FileName
-            設定ファイルのファイル名
+            The name of a configuration file
 
         .INPUTS
             None
@@ -33,62 +30,104 @@ function Get-OpenVPNConfig
 
     Begin
     {
+        #region Message
+
         $Message = DATA {
             ConvertFrom-StringData -StringData @'
                 NotOpenVPNConfigPath = The folder that contains the OpenVPN configuration file does not exist.
-                NotOpenVPNConfigExt = OpenVPN configuration file extension is not set.
+                NotOpenVPNConfigExt  = OpenVPN configuration file extension is not set.
 '@
         }
 
-        $Config    = 'config'
-        $ConfigDir = 'config_dir'
-        $ConfigExt = 'config_ext'
-        $OpenVPN   = 'OpenVPN'
+        #endregion
 
-        $ConfigPath = Join-Path -Path $env:USERPROFILE -ChildPath (Join-Path -Path $OpenVPN -ChildPath $Config)
-        if($ConfigPath -and (Test-Path -Path $ConfigPath))
+        #region Variables
+
+        $Config         = 'config'
+        $ConfigDir      = 'config_dir'
+        $ConfigExt      = 'config_ext'
+        $Format         = '*.{0}'
+        $FullName       = 'FullName'
+        $HkcuOpenVpnGui = 'HKCU:\Software\OpenVPN-GUI'
+        $HklmOpenVpn    = 'HKLM:\SOFTWARE\OpenVPN'
+        $OpenVpn        = 'OpenVPN'
+
+        $ConfigDirectoryInfo = @()
+
+        #endregion
+
+        #region Pre process
+
+        # Candidate of the config path:
+        # 1. %USERPROFILE%\OpenVPN\config, 2. HKCM:\Software\OpenVPN-GUI, 3. HKLM:\SOFTWARE\OpenVPN
+        $ConfigPath = @(
+            (Join-Path -Path $env:USERPROFILE -ChildPath (Join-Path -Path $OpenVpn -ChildPath $Config)),
+            (Get-Item -Path $HkcuOpenVpnGui).GetValue($ConfigDir),
+            (Get-Item -Path $HklmOpenVpn).GetValue($ConfigDir)
+        )
+
+        # Candidate of the extension:
+        # 1. HKCM:\Software\OpenVPN-GUI, 2. HKLM:\SOFTWARE\OpenVPN
+        $ConfigExtValue = @(
+            (Get-Item -Path $HkcuOpenVpnGui).GetValue($ConfigExt),
+            (Get-Item -Path $HklmOpenVpn).GetValue($ConfigExt)
+        )
+
+        # Get objects of the configuration path from candidates
+        foreach($Item in $ConfigPath)
         {
-            [object[]]$ConfigDirectoryInfo += Get-Item -Path $ConfigPath
+            if($Item -and (Test-Path -Path $Item))
+            {
+                [object[]]$ConfigDirectoryInfo += Get-Item -Path $Item
+            }
         }
-        $RegKey = 'HKCU:\Software\OpenVPN-GUI'
-        $ConfigPath = (Get-Item -Path $RegKey).GetValue($ConfigDir)
-        if($ConfigPath -and (Test-Path -Path $ConfigPath))
+
+        # If the full path is the same, put it together.
+        if($ConfigDirectoryInfo)
         {
-            [object[]]$ConfigDirectoryInfo += Get-Item -Path $ConfigPath
+            $ConfigDirectoryInfo = Sort-Object -InputObject $ConfigDirectoryInfo -Property $FullName -Unique
         }
-        $RegKey = 'HKLM:\SOFTWARE\OpenVPN'
-        $ConfigPath = (Get-Item -Path $RegKey).GetValue($ConfigDir)
-        if($ConfigPath -and (Test-Path -Path $ConfigPath))
-        {
-            [object[]]$ConfigDirectoryInfo += Get-Item -Path $ConfigPath
-        }
-        if(-not $ConfigDirectoryInfo)
+        # If not, the error ends.
+        else
         {
             throw $Message.NotOpenVPNConfigPath
         }
 
-        $RegKey = 'HKCU:\Software\OpenVPN-GUI'
-        $Extension = (Get-Item -Path $RegKey).GetValue($ConfigExt)
-        if($Extension -eq $null)
-        {
-            $RegKey = 'HKLM:\SOFTWARE\OpenVPN'
-            $Extension = (Get-Item -Path $RegKey).GetValue($ConfigExt)
-        }
-        if($Extension -eq $null)
-        {
-            throw $Message.NotOpenVPNConfigExt
-        }
-
-        $Filter = '*.{0}' -f $Extension
-
+        # If a file parameter specifies, set to filter.
         if($FileName)
         {
             $Filter = $FileName
         }
+        else
+        {
+            # Get the extension of the configuration file from candidates
+            foreach($Item in $ConfigExtValue)
+            {
+                if($Item -ne $null)
+                {
+                    $Extension = $Item
+                    break
+                }
+            }
+
+            # Set a filter to "*.$extension"
+            if($Extension)
+            {
+                $Filter = $Format -f $Extension
+            }
+            # If not, the error ends.
+            else
+            {
+                throw $Message.NotOpenVPNConfigExt
+            }
+        }
+
+        #endregion
     }
 
     Process
     {
+        # Return objects of the configuration file.
         Get-ChildItem -Path $ConfigDirectoryInfo -Filter $Filter -File -Recurse
     }
 }

@@ -10,7 +10,7 @@
 #########################################################################################
 
     .SYNOPSIS
-        Invoke Powershell.exe to completely hide the window.
+        Invoke PowerShell.exe to completely hide the window.
 
     .DESCRIPTION
         This Windows Script Host(WSH) script invokes PowerShell.exe with arguments without displaying any windows at all,
@@ -30,7 +30,7 @@
 <package>
     <job id="Invoke-PowerShellHidden">
         <runtime>
-            <description>Invoke Powershell.exe to completely hide the window.</description>
+            <description>Invoke PowerShell.exe to completely hide the window.</description>
             <unnamed
                 name       = "arguments"
                 helpstring = "Use as arguments of PowerShell.exe. Enclose it in double quotes."

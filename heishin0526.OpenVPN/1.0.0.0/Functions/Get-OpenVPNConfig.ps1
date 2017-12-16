@@ -78,7 +78,7 @@ function Get-OpenVPNConfig
         {
             if($Item -and (Test-Path -Path $Item))
             {
-                [object[]]$ConfigDirectoryInfo += Get-Item -Path $Item
+                $ConfigDirectoryInfo += Get-Item -Path $Item
             }
         }
 
@@ -103,7 +103,7 @@ function Get-OpenVPNConfig
             # Get the extension of the configuration file from candidates
             foreach($Item in $ConfigExtValue)
             {
-                if($Item -ne $null)
+                if($Item)
                 {
                     $Extension = $Item
                     break

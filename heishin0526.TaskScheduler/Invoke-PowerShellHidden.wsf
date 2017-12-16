@@ -1,0 +1,79 @@
+<?XML version="1.0" standalone="yes" ?>
+<!--
+
+#########################################################################################
+#
+# Copyright (c) Pull Promotion 3rd Previous Paddy. All rights reserved.
+#
+# Invoke-PowerShellHidden.wsf
+#
+#########################################################################################
+
+    .SYNOPSIS
+        Invoke Powershell.exe to completely hide the window.
+
+    .DESCRIPTION
+        This Windows Script Host(WSH) script invokes PowerShell.exe with arguments without displaying any windows at all,
+        expected to be used in Task Scheduler.
+        If without arguments, run PowerShell.exe in a nomal window.
+        Use WScript.exe to hide the window completely.
+
+    .PARAMETER (unnamed)
+        A argument string of PowerShell.exe. Enclose it in double quotes.
+
+    .INPUTS
+        None
+
+    .OUTPUTS
+        An exit code of PowerShell.exe
+-->
+<package>
+    <job id="Invoke-PowerShellHidden">
+        <runtime>
+            <description>Invoke Powershell.exe to completely hide the window.</description>
+            <unnamed
+                name       = "arguments"
+                helpstring = "Use as arguments of PowerShell.exe. Enclose it in double quotes."
+            />
+            <example>Example: PowerShellHidden.wsf "-Command {Get-EventLog -LogName security}"</example>
+        </runtime>
+        <script language="VBScript">
+        <![CDATA[
+            ' Declare variables
+            Option Explicit
+            Dim intArgCount
+            Dim intExitCode
+            Dim strPSExeFullPath
+            Dim wshEnv
+            Dim wshShell
+
+            ' Defaine constants
+            Const conHidden    = 0 'Hides the window and activates another window.
+            Const conPSExePath = "\System32\WindowsPowerShell\v1.0\powershell.exe"
+            Const conSuccess   = 0
+
+            ' Set a default value
+            intExitCode = conSuccess
+
+            ' Create a WshShell object
+            Set wshShell = WScript.createObject("Wscript.Shell")
+
+            ' Get the full path of PowerShell.exe
+            Set wshEnv = WshShell.Environment("PROCESS")
+            strPSExeFullPath = wshEnv("WINDIR") & conPSExePath
+
+            ' Change the result by the number of arguments.
+            intArgCount = WScript.Arguments.Count
+            If intArgCount = 1 Then ' Run PowerShell.exe with a argument hidden the window.
+                intExitCode = WshShell.Run(strPSExeFullPath & " " & WScript.Arguments.Item(0), conHidden, true)
+            ElseIf intArgCount = 0 Then ' Run PowerShell.exe in a normal window.
+                WshShell.Run strPSExeFullPath
+            Else ' Show usage
+                WScript.Arguments.ShowUsage
+            End If
+
+            WScript.Quit intExitCode
+        ]]>
+        </script>
+    </job>
+</package>

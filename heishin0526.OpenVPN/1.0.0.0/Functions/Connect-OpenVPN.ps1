@@ -1,19 +1,17 @@
-# OpenVPN-GUI を使用して接続する関数
+# Connect using OpenVPN-GUI
 function Connect-OpenVPN
 {
     <#
         .SYNOPSIS
-            OpenVPN-GUIを使用してOpenVPNサーバーへ接続します。
+            Connect using OpenVPN-GUI to OpenVPN server.
 
         .DESCRIPTION
-            関数 Connect-OpenVPN は、OpenVPN-GUI.exe を使用して、OpenVPN サーバーへ接続します。
+            The Connect-OpenVPN function uses OpenVPN-GUI.exe to connect to the OpenVPN server.
 
-            使用するためには、OpenVPN-GUI がパスのとおったフォルダーにあること、設定ファイルが
-            OpenVPN インストールフォルダーの config サブフォルダーにあること、OpenVPN の
-            ネットワークドライバーがインストールされていること、が必要です。
+            To use, the folder included OpenVPN-GUI.exe should be in the PATH environment variable,
 
         .PARAMETER ConfigFile
-            設定ファイルのファイル名
+            The name of the configuration file.
 
         .INPUTS
             None
@@ -24,35 +22,34 @@ function Connect-OpenVPN
     [CmdletBinding()]
     Param
     (
-        [string]$ConfigFile
+        [string]
+        $ConfigFile
     )
 
     Begin
     {
-        #region フィルター
+        #region Filter
 
-        # ネットワークデバイスがアクティブではない、かつ、制限時間内ならば真、そうでなければ偽を返すフィルター
+        # Returns true if the network device is not active and true within the time limit, otherwise false.
         filter Test-NetNotUpAndInTime([ciminstance]$NetAdapter, [datetime]$Start, [int]$Expire)
         {
             <#
                 .SYNOPSIS
-                    ネットワークデバイスがアクティブではない、かつ、制限時間内ならば真、そうでなければ偽を返す。
+                    Returns true if the network device is not active and true within the time limit, otherwise false.
 
                 .DESCRIPTION
-                    フィルター Test-NetNotUpAndInTime は、ネットワークデバイスの状態(Status)を取得して、
-                    アクティブ("Up")ではなく、かつ、制限時間内なら真(true)、そうでなければ偽(false)を返します。
+                    The filter Test-NetNotUpAndInTime returns true if status of the network device is not "up" and within the time limit, otherwise false.
 
-                    ネットワークデバイスのインデックス番号(ifIndex)のプロパティが存在しなかったり、インデックス
-                    番号のネットワークデバイスが存在しなかったりした場合は、偽(false)を返します。
+                    Returns false if the network device's index number property does not exist, or if there is no network device with the index number.
 
                 .PARAMETER NetAdapter
-                    ネットワークデバイス
+                    Network device
 
                 .PARAMETER Start
-                    開始時刻
+                    Start time
 
                 .PARAMETER Expire
-                    制限時間（分）
+                    Time limit (min.)
 
                 .INPUTS
                     None
@@ -85,7 +82,7 @@ function Connect-OpenVPN
 
         #endregion
 
-        #region メッセージ
+        #region Message
 
         $Message = DATA {
             ConvertFrom-StringData -StringData @'
@@ -96,32 +93,47 @@ function Connect-OpenVPN
 
         #endregion
 
-        #region 定数
+        #region Set the value of variables
 
-        $ConectCommand = '{0} --connect {1}' # VPN接続コマンド {0}:アプリケーション名 {1}:設定ファイル名
-        $Expire        = 5 # 制限時間（分）
-        $Extension     = 'exe' # アプリケーションの拡張子
-        $Interval      = 1 # 接続確認実行の間隔（秒）
-        $OpenVPN       = 'OpenVPN' # OpenVPN の名前
-        $OpenVPNGUI    = 'OpenVPN-GUI' # OpenVPNGUI のアプリケーション名（拡張子なし）
-        $Stopped       = $false # 停止中フラグ
+        $ConectCommand = '{0} --connect {1}' # Command of connect VPN: {0}:Application name {1}:Configuration file name
+        $Expire        = 5 # Time limit (min.)
+        $Extension     = 'exe' # Extension of the application.
+        $Interval      = 1 # Interval of checking to connect (sec.)
+        $OpenVPN       = 'OpenVPN' # Name of OpenVPN
+        $OpenVPNGUI    = 'OpenVPN-GUI' # Name of application of OpenVPNGUI (without extension)
+        $Stopped       = $false # Stopped flag.
 
-        $CommandName    = '{0}.{1}' -f $OpenVPNGUI, $Extension # アプリケーション名
-        $LegalCopyright = '*{0}*' -f $OpenVPN # ドライバーファイルの「著作権」に一致させるワイルドカード使用文字列
-        $Process        = New-Object -TypeName 'System.Diagnostics.Process' # プロセスオブジェクト
+        $CommandName    = '{0}.{1}' -f $OpenVPNGUI, $Extension # Application name (with extension)
+        $LegalCopyright = '*{0}*' -f $OpenVPN # Wildcard use string that matches the "copyright" of the driver file
+        $Process        = New-Object -TypeName 'System.Diagnostics.Process' # Process object
 
         #endregion
 
-        #region 前処理
+        #region Pre process
+
+        # Exit if OpenVPN-GUI.exe is not found.
+        $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
+        try
+        {
+            Get-Command -Name $CommandName
+        }
+        catch
+        {
+            throw
+        }
+        finally
+        {
+            $ErrorActionPreference = $DefaultErrorActionPreference
+        }
 
         $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
         try
         {
-            # 開始時刻を取得
+            # Get start time.
             $StartTime = Get-Date
-            # OpenVPN設定ファイルのファイルオブジェクトを取得
+            # Get file object of OpenVPN configuration file.
             $Config = Get-OpenVPNConfig -File $ConfigFile
-            # ドライバーファイルの「著作権」に "OpenVPN" を含むネットワークアダプターオブジェクトを取得
+            # Get the network adapter object that contains "OpenVPN" in the "copyright" of the driver file.
             $NetAdapter = Get-NetAdapterLegalCopyright -LegalCopyright $LegalCopyright
         }
         catch
@@ -133,13 +145,13 @@ function Connect-OpenVPN
             $ErrorActionPreference = $DefaultErrorActionPreference
         }
 
-        # 設定ファイルが複数あったら終了
+        # Exit if you have more than one configuration file.
         if($Config -is [System.Object[]])
         {
             throw $Message.MultipleConfFiles
         }
 
-        # 対象のネットワークアダプターが複数あったら終了
+        # Exit if there are multiple network adapters.
         if($NetAdapter -is [System.Object[]])
         {
             throw $Message.MultipleAdapters
@@ -150,16 +162,16 @@ function Connect-OpenVPN
 
     Process
     {
-        # VPN接続されておらず、かつ、制限時間内なら接続を実行
+        # If not connected to a VPN and in a limited time, run connecting.
         while(Test-NetNotUpAndInTime -NetAdapter $NetAdapter -Start $StartTime -Expire $Expire)
         {
-            # OpenVPNのプロセスを取得
+            # Get OpenVPN-GUI.exe process
             $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
             try
             {
                 $Process = Get-Process -Name $OpenVPNGUI
             }
-            # プロセスが存在しなければ、OpenVPNの接続を実行して、接続完了（または時間切れ）まで待機
+            # If the process does not exist, perform a OpenVPN connection and wait for the connection to complete (or run out of time).
             catch [Microsoft.PowerShell.Commands.ProcessCommandException]
             {
                 Invoke-Expression -Command ($ConectCommand -f $CommandName, $Config.Name)
@@ -168,7 +180,7 @@ function Connect-OpenVPN
                     Start-Sleep -Seconds $Interval
                 }
             }
-            # プロセス取得時にエラーが発生したら終了
+            # Exit if an error occurs when you get the process.
             catch
             {
                 throw
@@ -178,7 +190,7 @@ function Connect-OpenVPN
                 $ErrorActionPreference = $DefaultErrorActionPreference
             }
 
-            # VPN接続していないのにOpenVPNプロセスが存在したらプロセスを停止、停止中フラグを立てる
+            # If the OpenVPN process is not connected to a VPN, stop the process and flag it for a while.
             $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
             try
             {
@@ -188,7 +200,7 @@ function Connect-OpenVPN
                     $Stopped = $true
                 }
             }
-            # プロセス停止時にエラーが発生したら終了
+            # Exit if an error occurs when the process is shut down.
             catch
             {
                 throw

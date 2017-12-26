@@ -95,27 +95,29 @@ function Connect-OpenVPN
 
         #region Set the value of variables
 
-        $ConectCommand = '{0} --connect {1}' # Command of connect VPN: {0}:Application name {1}:Configuration file name
-        $Expire        = 5 # Time limit (min.)
-        $Extension     = 'exe' # Extension of the application.
-        $Interval      = 1 # Interval of checking to connect (sec.)
-        $OpenVPN       = 'OpenVPN' # Name of OpenVPN
-        $OpenVPNGUI    = 'OpenVPN-GUI' # Name of application of OpenVPNGUI (without extension)
-        $Stopped       = $false # Stopped flag.
+        $ConnectCommand = '{0} --connect {1}' # Command of connect VPN: {0}:Application name {1}:Configuration file name
+        $Expire         = 5 # Time limit (min.)
+        $Extension      = 'exe' # Extension of the application.
+        $Interval       = 1 # Interval of checking to connect (sec.)
+        $OpenVPN        = 'OpenVPN' # Name of OpenVPN
+        $OpenVPNGUI     = 'OpenVPN-GUI' # Name of OpenVPN-GUI
+        $Stopped        = $false # Stopped flag.
 
-        $CommandName    = '{0}.{1}' -f $OpenVPNGUI, $Extension # Application name (with extension)
-        $LegalCopyright = '*{0}*' -f $OpenVPN # Wildcard use string that matches the "copyright" of the driver file
-        $Process        = New-Object -TypeName 'System.Diagnostics.Process' # Process object
+        $LegalCopyright        = '*{0}*' -f $OpenVPN # Wildcard use string that matches the "copyright" of the driver file
+        $OpenVPNCommandName    = '{0}.{1}' -f $OpenVPN, $Extension # OpenVPN application name
+        $OpenVPNGUICommandName = '{0}.{1}' -f $OpenVPNGUI, $Extension # OpenVPN-GUI application name
+        $OpenVPNGUIProcess     = New-Object -TypeName 'System.Diagnostics.Process' # OpenVPN-GUI process object
 
         #endregion
 
         #region Pre process
 
-        # Exit if OpenVPN-GUI.exe is not found.
+        # Exit if OpenVPN.exe and OpenVPN-GUI.exe are not found.
         $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
         try
         {
-            Get-Command -Name $CommandName
+            Get-Command -Name $OpenVPNCommandName | Out-Null
+            Get-Command -Name $OpenVPNGUICommandName | Out-Null
         }
         catch
         {
@@ -165,22 +167,21 @@ function Connect-OpenVPN
         # If not connected to a VPN and in a limited time, run connecting.
         while(Test-NetNotUpAndInTime -NetAdapter $NetAdapter -Start $StartTime -Expire $Expire)
         {
-            # Get OpenVPN-GUI.exe process
+            # If the OpenVPN process is exist, stop the process.
+            # Since it is not normal for the process to exist while not connected.
             $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
             try
             {
-                $Process = Get-Process -Name $OpenVPNGUI
-            }
-            # If the process does not exist, perform a OpenVPN connection and wait for the connection to complete (or run out of time).
-            catch [Microsoft.PowerShell.Commands.ProcessCommandException]
-            {
-                Invoke-Expression -Command ($ConectCommand -f $CommandName, $Config.Name)
-                while(Test-NetNotUpAndInTime -NetAdapter $NetAdapter -Start $StartTime -Expire $Expire)
+                if($OpenVPNProcess = Get-Process -Name $OpenVPN)
                 {
-                    Start-Sleep -Seconds $Interval
+                    Stop-Process -InputObject $OpenVPNProcess -Force
                 }
             }
-            # Exit if an error occurs when you get the process.
+            catch [Microsoft.PowerShell.Commands.ProcessCommandException]
+            {
+                # Nothing if the OpenVPN process is not exist.
+            }
+            # Exit if an error occurs when get the OpenVPN process.
             catch
             {
                 throw
@@ -190,17 +191,43 @@ function Connect-OpenVPN
                 $ErrorActionPreference = $DefaultErrorActionPreference
             }
 
-            # If the OpenVPN process is not connected to a VPN, stop the process and flag it for a while.
+            # Get the OpenVPN-GUI process
             $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
             try
             {
-                if($Process.Name -and -not $Stopped)
+                $OpenVPNGUIProcess = Get-Process -Name $OpenVPNGUI
+            }
+            # If the OpenVPN-GUI process does not exist, perform a OpenVPN-GUI connection
+            # and wait for the connection to complete (or run out of time).
+            catch [Microsoft.PowerShell.Commands.ProcessCommandException]
+            {
+                Invoke-Expression -Command ($ConnectCommand -f $OpenVPNGUICommandName, $Config.Name)
+                while(Test-NetNotUpAndInTime -NetAdapter $NetAdapter -Start $StartTime -Expire $Expire)
                 {
-                    Stop-Process -InputObject $Process
+                    Start-Sleep -Seconds $Interval
+                }
+            }
+            # Exit if an error occurs when get the OpenVPN-GUI process.
+            catch
+            {
+                throw
+            }
+            finally
+            {
+                $ErrorActionPreference = $DefaultErrorActionPreference
+            }
+
+            # If the OpenVPN-GUI process is not connected to a VPN, stop the process and flag it for a while.
+            $DefaultErrorActionPreference = $ErrorActionPreference; $ErrorActionPreference = 'Stop'
+            try
+            {
+                if($OpenVPNGUIProcess.Name -and -not $Stopped)
+                {
+                    Stop-Process -InputObject $OpenVPNGUIProcess -Force
                     $Stopped = $true
                 }
             }
-            # Exit if an error occurs when the process is shut down.
+            # Exit if an error occurs when stop the OpenVPN-GUI process.
             catch
             {
                 throw

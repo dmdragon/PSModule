@@ -1,5 +1,5 @@
-# 指定されたワイルドカード文字列に一致する著作権(LegalCopyright)が設定された
-# ドライバーファイルを使用しているネットワークアダプターを取得する関数
+# A function retrieves a network adapter using a driver file
+# with a legal copyright matches the specified wildcard string.
 function Get-NetAdapterLegalCopyright
 {
     [CmdletBinding()]

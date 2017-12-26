@@ -1,4 +1,4 @@
-﻿# 指定されたデジタル署名者によって署名されたドライバーを使用しているネットワークデバイスを取得する関数
+﻿# A function retrieves a network device using a driver signed by the specified digital signer.
 function Get-NetAdapterSigner
 {
     [CmdletBinding()]
@@ -9,8 +9,6 @@ function Get-NetAdapterSigner
 
     Process
     {
-        # 署名されていない場合、SignerCertificate が存在しないため、
-        # Subject を取得できない。
         Get-NetAdapter |
         Where-Object -FilterScript {
             (($_ |

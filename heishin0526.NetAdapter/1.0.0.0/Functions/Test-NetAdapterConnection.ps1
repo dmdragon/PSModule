@@ -1,4 +1,4 @@
-﻿# ネットワークデバイスの接続を確認する関数
+﻿# A function verifies the connection of a network device.
 function Test-NetAdapterConnection
 {
     [CmdletBinding()]

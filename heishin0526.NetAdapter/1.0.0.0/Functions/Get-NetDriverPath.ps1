@@ -1,4 +1,4 @@
-﻿# ネットワークアダプターからドライバーのパスを取得する関数
+﻿# A function to get the driver path from a network adapter
 function Get-NetDriverPath
 {
     [CmdletBinding()]
